@@ -1,0 +1,93 @@
+import { audit, formatDiagnosis, SystemElement } from 'prune-systems';
+
+const elements: SystemElement[] = [
+  {
+    name: 'DashboardLayout',
+    type: 'component',
+    description: 'Root layout component for the analytics dashboard.',
+    dependencies: ['UserProfile', 'DataFetcher', 'ChartV2'],
+    dependents: ['App'],
+    lastModified: '2026-03-20',
+    linesOfCode: 120,
+    complexity: 6,
+  },
+  {
+    name: 'UserProfile',
+    type: 'component',
+    description: 'Displays the authenticated user avatar and name.',
+    dependencies: ['AuthContext'],
+    dependents: ['DashboardLayout', 'SettingsPage'],
+    lastModified: '2026-03-18',
+    linesOfCode: 65,
+    complexity: 3,
+  },
+  {
+    name: 'LegacyChart',
+    type: 'component',
+    description: 'Old D3-based chart component, replaced by ChartV2.',
+    dependencies: ['d3', 'DataFetcher'],
+    dependents: [],
+    lastModified: '2024-11-02',
+    linesOfCode: 340,
+    complexity: 12,
+  },
+  {
+    name: 'ChartV2',
+    type: 'component',
+    description: 'Modern chart component — duplicate of LegacyChart using Recharts.',
+    dependencies: ['recharts', 'DataFetcher'],
+    dependents: ['DashboardLayout'],
+    lastModified: '2026-03-15',
+    linesOfCode: 180,
+    complexity: 7,
+    metadata: { similarTo: 'LegacyChart' },
+  },
+  {
+    name: 'AnalyticsWrapper',
+    type: 'wrapper',
+    description: 'Thin wrapper around analytics event dispatch.',
+    dependencies: ['AnalyticsSDK'],
+    dependents: [],
+    lastModified: '2025-08-10',
+    linesOfCode: 8,
+    complexity: 1,
+  },
+  {
+    name: 'DataFetcher',
+    type: 'core',
+    description: 'Central data fetching service for all dashboard queries.',
+    dependencies: ['APIClient'],
+    dependents: ['DashboardLayout', 'LegacyChart', 'ChartV2', 'MetricsHelper'],
+    lastModified: '2026-03-22',
+    linesOfCode: 210,
+    complexity: 9,
+  },
+  {
+    name: 'UnusedModal',
+    type: 'component',
+    description: 'Modal for a feature that was never shipped.',
+    dependencies: ['ModalLib'],
+    dependents: [],
+    lastModified: '2024-06-01',
+    linesOfCode: 95,
+    complexity: 4,
+  },
+  {
+    name: 'MetricsHelper',
+    type: 'helper',
+    description: 'Aggregates and transforms raw metric payloads.',
+    dependencies: ['DataFetcher', 'lodash', 'moment', 'numeral', 'mathjs', 'stats-lite'],
+    dependents: ['DashboardLayout'],
+    lastModified: '2026-03-10',
+    linesOfCode: 420,
+    complexity: 22,
+  },
+];
+
+const result = audit({
+  system: 'React Dashboard',
+  elements,
+  mode: 'audit',
+});
+
+console.log(formatDiagnosis(result));
