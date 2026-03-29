@@ -1,7 +1,7 @@
 {
   "name": "prune-systems",
-  "version": "0.1.0",
-  "description": "A subtractive systems discipline and minimal agent runtime for auditing, simplifying, and refining systems.",
+  "version": "0.2.0",
+  "description": "Constraint-based system analyzer and reducer. Audit, classify, and prune codebases.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -18,18 +18,10 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [
-    "systems",
-    "audit",
-    "simplify",
-    "refine",
-    "prune",
-    "subtractive",
-    "architecture",
-    "code-quality"
-  ],
+  "keywords": ["systems", "audit", "prune", "analyze", "reduce", "dependency-graph", "static-analysis"],
   "license": "MIT",
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.4.0"
   }

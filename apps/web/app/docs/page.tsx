@@ -8,241 +8,234 @@ export const metadata: Metadata = {
   title: 'Documentation',
   description:
     'Complete documentation for the prune-systems npm package. '
-    + 'API reference, types, classifications, filters, and prompts.',
+    + 'API reference, types, CLI usage, and constraint system.',
 };
 
-const quickStartCode = `import { audit, formatDiagnosis } from 'prune-systems';
+const quickStartCode = `import { analyzeSystem, classifyComponents, runPrune } from 'prune-systems';
 
-const diagnosis = audit({
-  system: 'my-project',
-  elements: [
-    { name: 'AuthModule', type: 'module', dependents: ['App'], dependencies: ['Database'] },
-    { name: 'LegacyAuth', type: 'module', dependents: [], lastModified: '2024-01-15' },
-    { name: 'AuthWrapper', type: 'wrapper', dependents: [], linesOfCode: 8 },
-  ],
-});
+// Full automated run
+const result = runPrune('./src');
+console.log(result.verdict);    // → SUCCESS
+console.log(result.reductions); // → [{ type: 'remove', targets: [...] }, ...]
+console.log(result.before);     // → { files: 42, totalLoc: 11400, ... }
+console.log(result.after);      // → { files: 19, totalLoc: 5200, ... }
 
-console.log(formatDiagnosis(diagnosis));`;
+// Or step by step
+const analysis = analyzeSystem('./src');
+const classified = classifyComponents(analysis);
+classified.forEach(c => {
+  console.log(\`\${c.file}: \${c.classification} — \${c.reason}\`);
+});`;
+
+const cliCode = `# Analyze system structure
+$ prune analyze ./src
+
+# Propose reductions with classifications
+$ prune reduce ./src
+
+# Full benchmark with before/after delta
+$ prune benchmark ./src`;
 
 const apiFunctions = [
   {
-    name: 'audit',
-    signature: 'audit(config: AuditConfig): Diagnosis',
+    name: 'analyzeSystem',
+    signature: 'analyzeSystem(rootPath: string): SystemAnalysis',
     description:
-      'Runs a complete system audit. Accepts configuration with '
-      + 'system name, elements array, and mode. Returns a full '
-      + 'diagnosis with classifications, health score, and '
-      + 'recommended changes.',
+      'Scans a directory recursively. Extracts imports and exports from every '
+      + 'source file (.ts, .tsx, .js, .jsx). Builds a directed dependency '
+      + 'graph. Computes metrics (files, LOC, dependencies). Detects smells '
+      + '(circular deps, dead files, large files, duplicate exports).',
   },
   {
-    name: 'classify',
-    signature: 'classify(element: SystemElement): ClassificationResult',
+    name: 'classifyComponents',
+    signature: 'classifyComponents(analysis: SystemAnalysis): ClassifiedNode[]',
     description:
-      'Classifies a single system element as living, dead, '
-      + 'dormant, duplicated, decorative, or parasitic based on '
-      + 'its properties, usage patterns, and connections.',
+      'Classifies every node in the dependency graph as living, dead, '
+      + 'duplicated, decorative, or parasitic. Uses graph topology: '
+      + 'dependents count, fan-in/fan-out ratio, LOC, export overlap.',
   },
   {
-    name: 'applyFilters',
-    signature: 'applyFilters(element: SystemElement): FilterResult',
-    description:
-      'Applies the five PRUNE filters to an element and returns '
-      + 'a result object with pass/fail for each filter and an '
-      + 'overall recommendation.',
-  },
-  {
-    name: 'formatDiagnosis',
-    signature: 'formatDiagnosis(diagnosis: Diagnosis): string',
-    description:
-      'Formats a diagnosis object into a human-readable string '
-      + 'with classification table, health score, and ranked '
-      + 'recommendations.',
-  },
-  {
-    name: 'createDiagnosis',
+    name: 'proposeReductions',
     signature:
-      'createDiagnosis(system: string, mode: Mode, elements: SystemElement[], changes: Change[]): Diagnosis',
+      'proposeReductions(analysis: SystemAnalysis, classified: ClassifiedNode[]): Reduction[]',
     description:
-      'Manually constructs a diagnosis object from individual '
-      + 'components. Useful for building custom audit workflows.',
+      'Generates ranked reduction proposals. Dead modules → remove. '
+      + 'Duplicated modules → merge (keep the one with more dependents). '
+      + 'Decorative modules → inline into consumer. Parasitic → remove if orphaned.',
   },
   {
-    name: 'rankChanges',
-    signature: 'rankChanges(changes: Change[]): Change[]',
+    name: 'evaluateConstraints',
+    signature:
+      'evaluateConstraints(analysis: SystemAnalysis, removed: Set<string>): ConstraintResult',
     description:
-      'Sorts an array of recommended changes by impact and effort. '
-      + 'Highest-impact, lowest-effort changes appear first.',
+      'Validates a proposed removal set against 5 structural constraints: '
+      + 'function preservation, irreducibility, no duplication, local '
+      + 'reasoning (coupling score), traceability (path clarity).',
+  },
+  {
+    name: 'runPrune',
+    signature: 'runPrune(rootPath: string): PruneResult',
+    description:
+      'The full PRUNE loop. Analyze → classify → propose → validate each '
+      + 'proposal against constraints → accept or reject → return before/after '
+      + 'metrics, accepted reductions, constraint results, and verdict.',
   },
 ];
 
 const types = [
   {
-    name: 'SystemElement',
+    name: 'SystemAnalysis',
     description:
-      'Represents a single element in the system: module, function, '
-      + 'component, dependency, or workflow step.',
+      'Complete analysis: root path, dependency graph, aggregate metrics, '
+      + 'detected smells.',
   },
   {
-    name: 'Classification',
+    name: 'DependencyGraph',
     description:
-      'One of: living, dead, dormant, duplicated, decorative, '
-      + 'parasitic.',
+      'Directed graph with nodes (Map<string, FileNode>), forward edges '
+      + '(file → imports), and reverse edges (file → dependents).',
   },
   {
-    name: 'Mode',
+    name: 'FileNode',
     description:
-      'Audit mode: "audit" for full analysis, "quick" for health '
-      + 'score only, "classify" for classification without filters.',
+      'Parsed source file: path, relativePath, imports (ImportRef[]), '
+      + 'exports (string[]), loc.',
   },
   {
-    name: 'FilterResult',
+    name: 'ClassifiedNode',
     description:
-      'Result of applying the 5 filters. Contains pass/fail for '
-      + 'each filter and an overall action recommendation.',
+      'Classification result: file path, classification (living/dead/'
+      + 'duplicated/decorative/parasitic), reason string.',
   },
   {
-    name: 'ClassificationResult',
+    name: 'Reduction',
     description:
-      'Result of classifying a single element. Contains the '
-      + 'classification, confidence score, and evidence.',
+      'Proposed change: type (remove/merge/inline), targets (file paths), '
+      + 'optional into (merge target), reason, impact score (0-1).',
   },
   {
-    name: 'Change',
+    name: 'ConstraintResult',
     description:
-      'A recommended change: action type (remove, merge, rename, '
-      + 'simplify, extract, inline), target elements, and rationale.',
+      'Five constraint checks: functionPreserved (bool), irreducible (bool), '
+      + 'noDuplication (bool), localReasoning (0-1), traceability (0-1), '
+      + 'valid (composite).',
   },
   {
-    name: 'Diagnosis',
+    name: 'PruneResult',
     description:
-      'Complete audit output: system name, health score, classified '
-      + 'elements, ranked changes, and aggregate statistics.',
+      'Full result: before/after Metrics, accepted reductions, constraint '
+      + 'results, verdict (SUCCESS/PARTIAL/FAILURE).',
   },
   {
-    name: 'DiagnosisStats',
+    name: 'Metrics',
     description:
-      'Aggregate counts: total elements, living, dead, dormant, '
-      + 'duplicated, decorative, parasitic, and health percentage.',
+      'Aggregate numbers: files, totalLoc, dependencies, avgDepsPerFile, '
+      + 'maxDepsPerFile.',
   },
   {
-    name: 'AuditConfig',
+    name: 'Smell',
     description:
-      'Configuration for the audit function: system name, elements '
-      + 'array, mode, and optional filter overrides.',
+      'Detected issue: type (circular-dep/dead-file/large-file/duplicate-export), '
+      + 'target files, message.',
   },
 ];
 
 const classifications = [
   {
     name: 'Living',
-    color: 'text-green-400',
+    color: 'text-accent',
     description:
-      'Actively used, connected to other elements, and maintained. '
-      + 'This element earns its place in the system.',
+      'Actively used and connected. Has dependents and is imported by '
+      + 'other modules. Earns its place in the system.',
   },
   {
     name: 'Dead',
     color: 'text-red-400',
     description:
-      'Unused, unreferenced, and abandoned. No part of the system '
-      + 'depends on it. Safe to remove immediately.',
-  },
-  {
-    name: 'Dormant',
-    color: 'text-yellow-400',
-    description:
-      'Rarely used with low activity and fading relevance. Still '
-      + 'connected but losing its reason to exist.',
+      'Zero dependents and not an entry point. No other module imports '
+      + 'it. Safe to remove immediately.',
   },
   {
     name: 'Duplicated',
-    color: 'text-orange-400',
+    color: 'text-yellow-400',
     description:
-      'Similar or identical to another element in the system. One '
-      + 'of them should not exist. Merge or remove.',
+      'Exports the same symbol names as another module. One should be '
+      + 'removed or merged into the other.',
   },
   {
     name: 'Decorative',
-    color: 'text-purple-400',
+    color: 'text-white/50',
     description:
-      'Exists for the appearance of sophistication. Adds complexity '
-      + 'without adding function.',
+      'Thin wrapper under 15 lines with 1 or fewer dependents. Should '
+      + 'be inlined into its consumer.',
   },
   {
     name: 'Parasitic',
     color: 'text-pink-400',
     description:
-      'High cost, low value. Drains system health through '
-      + 'maintenance burden, performance cost, or cognitive load.',
+      'High fan-out (imports many modules) but few or zero dependents. '
+      + 'Consumes without contributing.',
   },
 ];
 
-const filters = [
+const constraints = [
   {
-    number: '0',
-    question: 'Can this be removed entirely?',
-    detail:
-      'The zero filter. Ask this first. If the answer is yes, '
-      + 'remove it and move on.',
+    name: 'Function Preserved',
+    description:
+      'Every remaining module\'s imports still resolve. No broken '
+      + 'dependency chains after removal.',
   },
   {
-    number: '1',
-    question: 'Is this essential?',
-    detail:
-      'Does the system break without it? Essential means '
-      + 'load-bearing, not merely convenient.',
+    name: 'Irreducible',
+    description:
+      'Every remaining non-entry module is depended upon by at least '
+      + 'one other remaining module.',
   },
   {
-    number: '2',
-    question: 'Is this symbiotic?',
-    detail:
-      'Does it both give to and receive from the system? Isolated '
-      + 'elements that only consume resources are parasitic.',
+    name: 'No Duplication',
+    description:
+      'No two remaining modules export the same symbol name '
+      + '(excluding default exports).',
   },
   {
-    number: '3',
-    question: 'Is this traceable?',
-    detail:
-      'Can you point to exactly why this element exists? A specific '
-      + 'current requirement, not a vague justification.',
+    name: 'Local Reasoning',
+    description:
+      'Low coupling score. Computed as 1 - (avg fan-in × fan-out) / n². '
+      + 'Must exceed 0.3.',
   },
   {
-    number: '4',
-    question: 'Can this be removed later?',
-    detail:
-      'If removing it later would cause cascading failures, it is a '
-      + 'coupling risk regardless of current value.',
+    name: 'Traceability',
+    description:
+      'Short dependency chains. Computed via BFS average shortest path. '
+      + 'Must exceed 0.3.',
   },
 ];
 
 const auditPrompt =
-  'You are zengineer, a subtractive systems auditor. Your role is to observe, diagnose, and recommend removal actions.\n\nGiven the following system, perform a complete audit:\n\n1. Map every module, component, function, and dependency\n2. Classify each as: living, dead, dormant, duplicated, decorative, or parasitic\n3. Apply the 5 filters to each element:\n   0. Can this be removed entirely?\n   1. Is this essential?\n   2. Is this symbiotic?\n   3. Is this traceable?\n   4. Is this removable later?\n4. Produce a diagnosis with:\n   - Classification table\n   - Health score\n   - Ranked list of recommended changes (remove, merge, rename, simplify)\n   - Expected outcome after changes\n\nBe precise. Be severe. Recommend removal by default.';
+  'You are PRUNE, a constraint-based system analyzer.\n\nAudit the system I describe:\n\n1. Scan every module, file, component, and dependency\n2. Build the dependency graph\n3. Classify each element:\n   - living (actively used, connected)\n   - dead (no imports, no dependents)\n   - duplicated (same exports as another module)\n   - decorative (thin wrapper, <15 lines)\n   - parasitic (high deps, low value)\n4. Propose reductions:\n   - remove dead modules\n   - merge duplicates (keep the one with more dependents)\n   - inline decorative wrappers\n5. Validate against constraints:\n   - Function preserved (no broken imports)\n   - Irreducible (nothing else can be removed)\n   - No duplication (no shared exports remain)\n   - Local reasoning (low coupling score)\n   - Traceability (short dependency chains)\n6. Output:\n   - Before/after metrics (files, lines, deps)\n   - Delta percentages\n   - Constraint results (✓/✗)\n   - Verdict: SUCCESS / PARTIAL / FAILURE\n\nBe precise. Be severe. Default to removal.';
 
 const simplifyPrompt =
-  'You are zengineer in simplification mode. Your goal is to reduce system complexity without losing function.\n\nAnalyze this system and:\n1. Identify every abstraction layer\n2. Question each abstraction: does it earn its complexity?\n3. Find merge opportunities (similar modules, redundant wrappers)\n4. Propose the minimum viable architecture\n5. Output a ranked simplification plan\n\nRules:\n- Prefer deletion over refactoring\n- Prefer merging over separating\n- Prefer inlining over abstracting\n- Every remaining element must justify its existence';
+  'You are PRUNE in simplification mode.\n\nAnalyze this system and:\n1. Identify every abstraction layer\n2. Question each: does it earn its complexity?\n3. Find merge opportunities (similar modules, redundant wrappers)\n4. Propose the minimum viable architecture\n5. Validate every proposal against the 5 constraints\n\nRules:\n- Prefer deletion over refactoring\n- Prefer merging over separating\n- Prefer inlining over abstracting\n- Every remaining element must justify its existence';
 
 const rebuildPrompt =
-  'You are zendev, a disciplined builder. You only construct from what survives reduction.\n\nGiven this diagnosis from zengineer:\n1. Build only from essential elements\n2. Compose from existing primitives — do not create new abstractions\n3. Refuse any abstraction that does not pass all 5 filters\n4. Keep the implementation traceable and removable\n5. Output clean, minimal code with no decorative patterns\n\nRules:\n- No premature abstraction\n- No speculative architecture\n- No wrapper functions that add no value\n- Every line must earn its place';
+  'You are PRUNE in build mode. You only construct from what survives reduction.\n\nGiven this system diagnosis:\n1. Build only from essential elements\n2. Compose from existing primitives\n3. Refuse any abstraction that doesn\'t pass all constraints\n4. Keep the implementation traceable and removable\n5. Output clean, minimal code\n\nRules:\n- No premature abstraction\n- No speculative architecture\n- No wrapper functions that add no value\n- Every line must earn its place';
 
 const workflowPrompt =
-  'You are operating under the PRUNE.SYSTEMS discipline.\n\nBefore writing any code:\n1. Audit: Run zengineer on the current system. Classify all elements.\n2. Reduce: Remove everything that is dead, dormant, or duplicated.\n3. Simplify: Merge decorative abstractions. Inline parasitic dependencies.\n4. Filter: Apply the 5 filters to every remaining element.\n5. Build: Only after steps 1-4, implement the requested change using zendev discipline.\n\nEvery addition must pass:\n0. Can the goal be achieved by removing something instead?\n1. Is this essential to the request?\n2. Is this symbiotic with the existing system?\n3. Is this traceable to a clear requirement?\n4. Can this be removed later without cascading damage?\n\nIf any filter fails, do not add it. Find a simpler path.';
-
-const founderAuditPrompt =
-  'You are performing a founder-grade product audit using PRUNE.SYSTEMS methodology.\n\nAudit this product/system across these dimensions:\n1. Features: Which are dead (unused), dormant (rarely used), or duplicated?\n2. Architecture: Which services/modules can be merged or eliminated?\n3. Dependencies: Which external dependencies are parasitic (high cost, low value)?\n4. Workflows: Which processes are decorative (feel productive but add no value)?\n5. Abstractions: Which abstractions exist without earning their complexity?\n\nFor each finding:\n- Classify it (living/dead/dormant/duplicated/decorative/parasitic)\n- Apply the 5 filters\n- Recommend a specific action\n- Estimate impact (high/medium/low)\n\nOutput a ranked reduction plan. Start with highest-impact, lowest-effort removals.\nFinish with a system health score and expected improvement after pruning.';
+  'You are operating under the PRUNE discipline.\n\nBefore writing any code:\n1. Audit: Scan the system. Classify all elements.\n2. Reduce: Remove everything dead, duplicated, or decorative.\n3. Validate: Check constraints — function preserved, irreducible, no duplication.\n4. Build: Only after steps 1-3, implement the requested change.\n\nEvery addition must pass:\n- Is this necessary or can the goal be achieved by removal?\n- Does this break any existing dependency?\n- Does this introduce duplication?\n- Can this be removed later without cascading damage?\n\nIf any check fails, find a simpler path.';
 
 const navLinks = [
   { href: '#quick-start', label: 'Quick Start' },
-  { href: '#api', label: 'API Reference' },
+  { href: '#cli', label: 'CLI' },
+  { href: '#api', label: 'API' },
   { href: '#types', label: 'Types' },
   { href: '#classifications', label: 'Classifications' },
-  { href: '#filters', label: 'Filters' },
-  { href: '#prompts', label: 'Prompt Library' },
+  { href: '#constraints', label: 'Constraints' },
+  { href: '#prompts', label: 'Prompts' },
 ];
 
 export default function DocsPage() {
   return (
     <>
-      {/* Overview */}
       <Section className="pt-32">
         <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
           DOCUMENTATION
@@ -251,9 +244,8 @@ export default function DocsPage() {
           Documentation
         </h1>
         <p className="text-lg text-white/50 max-w-3xl mb-12">
-          Everything you need to integrate PRUNE into your workflow.
-          Install the npm package, use the API, or copy the prompts
-          directly into your AI assistant.
+          CLI reference, TypeScript API, type definitions, constraint system,
+          and copy-paste prompts.
         </p>
         <div className="flex flex-wrap gap-3">
           {navLinks.map((link) => (
@@ -268,7 +260,6 @@ export default function DocsPage() {
         </div>
       </Section>
 
-      {/* Quick Start */}
       <Section id="quick-start" className="bg-surface-primary">
         <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
           QUICK START
@@ -285,13 +276,54 @@ export default function DocsPage() {
           <CodeBlock
             code={quickStartCode}
             language="typescript"
-            filename="audit.ts"
+            filename="analyze.ts"
           />
         </div>
       </Section>
 
-      {/* API Reference */}
-      <Section id="api">
+      <Section id="cli">
+        <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
+          CLI
+        </p>
+        <h2 className="text-3xl font-light tracking-tight mb-8">
+          Command line interface.
+        </h2>
+        <div className="max-w-4xl">
+          <CodeBlock
+            code={cliCode}
+            language="bash"
+            filename="terminal"
+          />
+          <div className="mt-8 space-y-4">
+            {[
+              {
+                cmd: 'prune analyze <path>',
+                desc: 'Scan files, build dependency graph, report metrics and smells.',
+              },
+              {
+                cmd: 'prune reduce <path>',
+                desc: 'Classify components, propose ranked reductions.',
+              },
+              {
+                cmd: 'prune benchmark <path>',
+                desc: 'Full PRUNE loop: before/after metrics, constraint validation, verdict.',
+              },
+            ].map((c) => (
+              <div
+                key={c.cmd}
+                className="flex items-start gap-4 p-4 rounded-lg border border-white/[0.06] bg-surface-primary"
+              >
+                <code className="font-mono text-sm text-accent shrink-0">
+                  {c.cmd}
+                </code>
+                <span className="text-sm text-white/50">{c.desc}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <Section id="api" className="bg-surface-primary">
         <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
           API REFERENCE
         </p>
@@ -302,7 +334,7 @@ export default function DocsPage() {
           {apiFunctions.map((fn) => (
             <div
               key={fn.name}
-              className="p-6 rounded-lg border border-white/[0.06] bg-surface-primary"
+              className="p-6 rounded-lg border border-white/[0.06] bg-surface-void"
             >
               <code className="font-mono text-sm text-accent">
                 {fn.signature}
@@ -315,8 +347,7 @@ export default function DocsPage() {
         </div>
       </Section>
 
-      {/* Types */}
-      <Section id="types" className="bg-surface-primary">
+      <Section id="types">
         <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
           TYPES
         </p>
@@ -327,7 +358,7 @@ export default function DocsPage() {
           {types.map((t) => (
             <div
               key={t.name}
-              className="flex items-start gap-4 p-4 rounded-lg border border-white/[0.06] bg-surface-void"
+              className="flex items-start gap-4 p-4 rounded-lg border border-white/[0.06] bg-surface-primary"
             >
               <code className="font-mono text-sm text-accent shrink-0 w-44">
                 {t.name}
@@ -340,19 +371,18 @@ export default function DocsPage() {
         </div>
       </Section>
 
-      {/* Classifications */}
-      <Section id="classifications">
+      <Section id="classifications" className="bg-surface-primary">
         <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
           CLASSIFICATIONS
         </p>
         <h2 className="text-3xl font-light tracking-tight mb-12">
-          The six classifications.
+          Five classifications.
         </h2>
         <div className="grid gap-4 md:grid-cols-2 max-w-4xl">
           {classifications.map((c) => (
             <div
               key={c.name}
-              className="p-5 rounded-lg border border-white/[0.06] bg-surface-primary"
+              className="p-5 rounded-lg border border-white/[0.06] bg-surface-void"
             >
               <div className={`text-sm font-mono mb-2 ${c.color}`}>
                 {c.name}
@@ -365,38 +395,39 @@ export default function DocsPage() {
         </div>
       </Section>
 
-      {/* Filters */}
-      <Section id="filters" className="bg-surface-primary">
+      <Section id="constraints">
         <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
-          THE FIVE FILTERS
+          CONSTRAINT SYSTEM
         </p>
-        <h2 className="text-3xl font-light tracking-tight mb-12">
-          Five questions for every element.
+        <h2 className="text-3xl font-light tracking-tight mb-4">
+          Five structural constraints.
         </h2>
+        <p className="text-white/50 mb-12 max-w-3xl">
+          Every proposed reduction must pass all five constraints. If any
+          fails, the reduction is rejected. This prevents over-pruning,
+          broken imports, and false simplification.
+        </p>
         <div className="space-y-4 max-w-3xl">
-          {filters.map((f) => (
+          {constraints.map((c) => (
             <div
-              key={f.number}
-              className="p-6 rounded-lg border border-white/[0.06] bg-surface-void"
+              key={c.name}
+              className="flex items-start gap-4 p-5 rounded-lg border border-white/[0.06] bg-surface-primary"
             >
-              <div className="flex items-baseline gap-4 mb-2">
-                <span className="text-xl font-mono text-accent font-light">
-                  {f.number}
-                </span>
+              <span className="text-accent text-lg mt-0.5 shrink-0">✓</span>
+              <div>
                 <span className="text-white/80 font-medium text-sm">
-                  {f.question}
+                  {c.name}
                 </span>
+                <p className="text-sm text-white/40 mt-1 leading-relaxed">
+                  {c.description}
+                </p>
               </div>
-              <p className="text-sm text-white/40 leading-relaxed ml-10">
-                {f.detail}
-              </p>
             </div>
           ))}
         </div>
       </Section>
 
-      {/* Prompt Library */}
-      <Section id="prompts">
+      <Section id="prompts" className="bg-surface-primary">
         <p className="text-xs font-mono text-accent tracking-wider uppercase mb-4">
           PROMPT LIBRARY
         </p>
@@ -404,41 +435,34 @@ export default function DocsPage() {
           Copy-paste prompts.
         </h2>
         <p className="text-white/50 mb-12 max-w-3xl">
-          Use these prompts with any AI assistant — ChatGPT, Claude,
-          Cursor, Copilot — to apply the PRUNE discipline without
-          installing anything.
+          Use these with any AI assistant to apply the PRUNE discipline
+          without installing anything.
         </p>
         <div className="space-y-8 max-w-4xl">
           <PromptBlock
-            title="zengineer — System Audit"
-            description="Full system audit with classifications, filters, and ranked recommendations."
+            title="System Audit"
+            description="Full analysis with classifications, reductions, and constraint validation."
             prompt={auditPrompt}
           />
           <PromptBlock
-            title="zengineer — Simplify"
+            title="Simplify"
             description="Reduce complexity by questioning every abstraction."
             prompt={simplifyPrompt}
           />
           <PromptBlock
-            title="zendev — Rebuild"
-            description="Build from what survives reduction. No decorative patterns."
+            title="Build"
+            description="Construct only from what survives reduction."
             prompt={rebuildPrompt}
           />
           <PromptBlock
-            title="Full Reduction-First Workflow"
-            description="Complete PRUNE discipline: audit, reduce, simplify, filter, then build."
+            title="Full Workflow"
+            description="Complete PRUNE discipline: audit → reduce → validate → build."
             prompt={workflowPrompt}
-          />
-          <PromptBlock
-            title="Founder Product Audit"
-            description="Founder-grade product audit across features, architecture, dependencies, and workflows."
-            prompt={founderAuditPrompt}
           />
         </div>
       </Section>
 
-      {/* CTA */}
-      <Section className="bg-surface-primary">
+      <Section>
         <div className="text-center">
           <h2 className="text-3xl font-light tracking-tight mb-4">
             Ready to prune?

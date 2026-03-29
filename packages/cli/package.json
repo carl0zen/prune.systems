@@ -1,0 +1,22 @@
+{
+  "name": "@prune-systems/cli",
+  "version": "0.2.0",
+  "description": "CLI for PRUNE.SYSTEMS — analyze, reduce, and benchmark codebases.",
+  "bin": {
+    "prune": "./dist/index.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch"
+  },
+  "dependencies": {
+    "prune-systems": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "license": "MIT"
+}
